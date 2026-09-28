@@ -4,6 +4,7 @@ import logging
 from typing import TypeGuard
 
 from pyvesync.base_devices import VeSyncHumidifier
+from pyvesync.base_devices.dehumidifier_base import VeSyncDehumidifierBase
 from pyvesync.base_devices.fan_base import VeSyncFanBase
 from pyvesync.base_devices.fryer_base import VeSyncFryer
 from pyvesync.base_devices.outlet_base import VeSyncOutlet
@@ -41,6 +42,12 @@ def is_humidifier(device: VeSyncBaseDevice) -> TypeGuard[VeSyncHumidifier]:
     """Check if the device represents a humidifier."""
 
     return device.product_type == ProductTypes.HUMIDIFIER
+
+
+def is_dehumidifier(device: VeSyncBaseDevice) -> TypeGuard[VeSyncDehumidifierBase]:
+    """Check if the device represents a dehumidifier."""
+
+    return device.product_type == ProductTypes.DEHUMIDIFIER
 
 
 def is_fan(device: VeSyncBaseDevice) -> TypeGuard[VeSyncFanBase]:

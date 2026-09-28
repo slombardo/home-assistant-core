@@ -29,7 +29,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from .common import is_air_fryer, is_humidifier, is_outlet, rgetattr
+from .common import is_air_fryer, is_dehumidifier, is_humidifier, is_outlet, rgetattr
 from .const import AIR_FRYER_MODE_MAP, VS_DEVICES, VS_DISCOVERY
 from .coordinator import VesyncConfigEntry, VeSyncDataCoordinator
 from .entity import VeSyncBaseEntity
@@ -158,7 +158,10 @@ SENSORS: tuple[VeSyncSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfRatio.PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda device: device.state.humidity,
-        exists_fn=is_humidifier,
+        exists_fn=lambda device: (
+            (is_humidifier(device) or is_dehumidifier(device))
+            and device.state.humidity is not None
+        ),
     ),
     VeSyncSensorEntityDescription(
         key="temperature",
@@ -167,8 +170,22 @@ SENSORS: tuple[VeSyncSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda device: device.state.temperature,
         exists_fn=lambda device: (
-            is_humidifier(device) and device.state.temperature is not None
+            (is_humidifier(device) or is_dehumidifier(device))
+            and device.state.temperature is not None
         ),
+    ),
+    VeSyncSensorEntityDescription(
+        key="error-codes-count",
+        translation_key="error_codes_count",
+        native_unit_of_measurement="codes",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda device: (
+            len(device.state.error_codes)
+            if rgetattr(device, "state.error_codes") is not None
+            else 0
+        ),
+        exists_fn=lambda device: is_dehumidifier(device),
     ),
     VeSyncSensorEntityDescription(
         key="cook_status",
@@ -300,3 +317,15 @@ class VeSyncSensorEntity(VeSyncBaseEntity, SensorEntity):
             if self.device.temp_unit == "fahrenheit":
                 return UnitOfTemperature.FAHRENHEIT
         return super().native_unit_of_measurement
+
+    @property
+    @override
+    def extra_state_attributes(self) -> dict:
+        """Return extra state attributes for dehumidifier error codes."""
+        attrs = {}
+        if is_dehumidifier(self.device):
+            if self.entity_description.key == "error-codes-count":
+                error_codes = rgetattr(self.device, "state.error_codes")
+                if isinstance(error_codes, list):
+                    attrs["error_codes"] = error_codes
+        return attrs
